@@ -24,13 +24,18 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 // =============================================================================
 
 const Content: React.FC = () => {
-  const [selectedPlace, setSelectedPlace] =
-    useState<google.maps.places.PlaceResult | null>(null);
+  const [selectedCoordinates, setSelectedCoordinates] =
+    useState<google.maps.LatLngLiteral | null>(null);
   const [markerRef, marker] = useAdvancedMarkerRef();
 
   const [address, setAddress] = useState<string>("");
   const onChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
     setAddress(event.target.value);
+  };
+
+  const onPlaceSelect = (place: google.maps.places.PlaceResult | null) => {
+    setSelectedCoordinates(place?.geometry?.location?.toJSON() ?? null);
+    setAddress(place?.formatted_address ?? "");
   };
 
   if (!API_KEY) {
@@ -56,13 +61,12 @@ const Content: React.FC = () => {
       <MapControl position={ControlPosition.TOP}>
         <div className="autocomplete-control">
           <PlaceAutocomplete
-            onPlaceSelect={setSelectedPlace}
-            value={address}
+            onPlaceSelect={onPlaceSelect}
             onChange={onChange}
           />
         </div>
       </MapControl>
-      <MapHandler place={selectedPlace} marker={marker} />
+      <MapHandler selectedCoordinates={selectedCoordinates} marker={marker} />
     </APIProvider>
   );
 };
@@ -71,29 +75,30 @@ const Content: React.FC = () => {
 // =============================================================================
 
 interface MapHandlerProps {
-  place: google.maps.places.PlaceResult | null;
+  selectedCoordinates: google.maps.LatLngLiteral | null;
   marker: google.maps.marker.AdvancedMarkerElement | null;
 }
 
-const MapHandler: React.FC<MapHandlerProps> = ({ place, marker }) => {
+const MapHandler: React.FC<MapHandlerProps> = ({
+  selectedCoordinates,
+  marker,
+}) => {
   const map = useMap();
 
   useEffect(() => {
-    if (!map || !place || !marker) return;
-
-    if (place.geometry?.viewport) {
-      map.fitBounds(place.geometry?.viewport);
-    }
-    marker.position = place.geometry?.location;
-  }, [map, place, marker]);
+    if (!map || !selectedCoordinates || !marker) return;
+    marker.position = selectedCoordinates;
+    map.setCenter(selectedCoordinates);
+    map.setZoom(15);
+  }, [map, selectedCoordinates, marker]);
 
   return null;
 };
 
 interface PlaceAutocompleteProps {
   onPlaceSelect: (place: google.maps.places.PlaceResult | null) => void;
-  value: string;
-  onChange: React.ChangeEventHandler<HTMLInputElement>;
+  value?: string;
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
 }
 
 const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
